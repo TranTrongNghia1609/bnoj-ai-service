@@ -1,0 +1,15 @@
+{
+  "name": "tlcn-ai-service",
+  "version": "1.0.0",
+  "description": "AI recommendation service",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.8.0",
+    "dotenv": "^16.4.5",
+    "kafkajs": "^2.2.4"
+  }
+}
