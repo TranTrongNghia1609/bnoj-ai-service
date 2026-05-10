@@ -24,9 +24,13 @@ const readNumber = (name, defaultValue) => {
 
 export const env = {
   nodeEnv: readString('NODE_ENV', 'development'),
+
+  // Active provider selection
   activeProvider: readString('ACTIVE_PROVIDER', 'gemini').toLowerCase(),
   aiDraftProvider: readString('AI_DRAFT_PROVIDER', readString('ACTIVE_PROVIDER', 'gemini')).toLowerCase(),
   aiRefinerProvider: readString('AI_REFINER_PROVIDER', readString('ACTIVE_PROVIDER', 'gemini')).toLowerCase(),
+
+  // Kafka
   kafkaBrokers: readString('KAFKA_BROKER', 'localhost:9092')
     .split(',')
     .map((item) => item.trim())
@@ -35,6 +39,10 @@ export const env = {
   kafkaPassword: readString('KAFKA_PASSWORD', ''),
   kafkaRequestTopic: readString('AI_REQUEST_TOPIC', 'ai_request'),
   kafkaResponseTopic: readString('AI_RESPONSE_TOPIC', 'ai_response'),
+
+  // ---------------------------------------------------------------------------
+  // Gemini
+  // ---------------------------------------------------------------------------
   geminiApiKey: readString('GEMINI_API_KEY', ''),
   geminiModel: readString('GEMINI_MODEL', 'gemini-1.5-flash'),
   geminiDraftModel: readString('GEMINI_DRAFT_MODEL', readString('GEMINI_MODEL', 'gemini-1.5-flash')),
@@ -45,6 +53,27 @@ export const env = {
   geminiRetryDelayMs: readNumber('GEMINI_RETRY_DELAY_MS', 5000),
   geminiDraftRetryDelayMs: readNumber('GEMINI_DRAFT_RETRY_DELAY_MS', readNumber('GEMINI_RETRY_DELAY_MS', 5000)),
   geminiRefinerRetryDelayMs: readNumber('GEMINI_REFINER_RETRY_DELAY_MS', readNumber('GEMINI_RETRY_DELAY_MS', 5000)),
+
+  // ---------------------------------------------------------------------------
+  // OpenAI
+  // ---------------------------------------------------------------------------
+  openaiApiKey: readString('OPENAI_API_KEY', ''),
+  openaiModel: readString('OPENAI_MODEL', 'gpt-4o-mini'),
+  openaiDraftModel: readString('OPENAI_DRAFT_MODEL', readString('OPENAI_MODEL', 'gpt-4o-mini')),
+  openaiRefinerModel: readString('OPENAI_REFINER_MODEL', readString('OPENAI_MODEL', 'gpt-4o-mini')),
+  openaiMaxRetries: readNumber('OPENAI_MAX_RETRIES', 1),
+  openaiDraftMaxRetries: readNumber('OPENAI_DRAFT_MAX_RETRIES', readNumber('OPENAI_MAX_RETRIES', 1)),
+  openaiRefinerMaxRetries: readNumber('OPENAI_REFINER_MAX_RETRIES', readNumber('OPENAI_MAX_RETRIES', 1)),
+  openaiRetryDelayMs: readNumber('OPENAI_RETRY_DELAY_MS', 5000),
+  openaiDraftRetryDelayMs: readNumber('OPENAI_DRAFT_RETRY_DELAY_MS', readNumber('OPENAI_RETRY_DELAY_MS', 5000)),
+  openaiRefinerRetryDelayMs: readNumber('OPENAI_REFINER_RETRY_DELAY_MS', readNumber('OPENAI_RETRY_DELAY_MS', 5000)),
+  openaiBaseURL: readString('OPENAI_BASE_URL', ''),            // optional: custom endpoint / Azure
+  openaiTemperature: readNumber('OPENAI_TEMPERATURE', 0.7),
+  openaiMaxTokens: readNumber('OPENAI_MAX_TOKENS', 2048),
+
+  // ---------------------------------------------------------------------------
+  // Concurrency & optimization
+  // ---------------------------------------------------------------------------
   aiMaxConcurrent: readNumber('AI_MAX_CONCURRENT', 3),
   aiSkipRefinerMinLength: readNumber('AI_SKIP_REFINER_MIN_LENGTH', 200),
 };
@@ -61,7 +90,18 @@ export const validateEnv = () => {
     .filter(Boolean);
 
   if (usedProviders.includes('gemini') && !env.geminiApiKey) {
-    errors.push('GEMINI_API_KEY is required when ACTIVE_PROVIDER=gemini');
+    errors.push('GEMINI_API_KEY is required when using provider=gemini');
+  }
+
+  if (usedProviders.includes('openai') && !env.openaiApiKey) {
+    errors.push('OPENAI_API_KEY is required when using provider=openai');
+  }
+
+  const supportedProviders = ['gemini', 'openai'];
+  for (const p of usedProviders) {
+    if (!supportedProviders.includes(p)) {
+      errors.push(`Unsupported provider "${p}". Supported: ${supportedProviders.join(', ')}`);
+    }
   }
 
   if (errors.length > 0) {
