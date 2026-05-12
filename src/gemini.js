@@ -1,19 +1,22 @@
+/**
+ * Legacy adapter — kept for backward compatibility.
+ * Delegates to the ProviderRegistry so callers always get the active provider.
+ *
+ * Prefer importing from ProviderRegistry directly in new code.
+ */
 import { providerConfig } from './config/providers.js';
-import { GeminiProvider } from './providers/gemini/GeminiProvider.js';
+import { ProviderRegistry } from './providers/ProviderRegistry.js';
 
-let geminiProvider = null;
+let _registry = null;
 
-const getGeminiProvider = () => {
-  if (geminiProvider) {
-    return geminiProvider;
+const getRegistry = () => {
+  if (!_registry) {
+    _registry = new ProviderRegistry(providerConfig);
   }
-
-  geminiProvider = new GeminiProvider(providerConfig.gemini);
-  geminiProvider.validateConfig();
-  return geminiProvider;
+  return _registry;
 };
 
-// Backward-compatible adapter used by legacy imports.
+// Backward-compatible function used by any legacy direct imports.
 export const generateHint = async (
   sourceCode,
   problemTitle,
@@ -27,7 +30,7 @@ export const generateHint = async (
   userQuestion,
   conversationContext,
 ) => {
-  const provider = getGeminiProvider();
+  const provider = getRegistry().getActiveProvider();
 
   return provider.generateHint({
     sourceCode,

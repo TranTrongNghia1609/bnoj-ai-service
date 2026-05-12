@@ -1,66 +1,136 @@
 import { Kafka } from 'kafkajs';
 import { ConcurrencyLimiter } from '../core/ConcurrencyLimiter.js';
 
+/**
+ * KafkaService — multi-topic consumer / single producer.
+ *
+ * Usage:
+ *   const service = new KafkaService({ kafkaClientConfig, kafkaConsumerConfig, maxConcurrent: 3 });
+ *
+ *   // Register one handler per consumed topic.
+ *   // A handler receives (messageValue: Buffer) and returns a response payload
+ *   // (or null/undefined to suppress producing a response).
+ *   service.register('ai_request', {
+ *     handler: async (messageValue) => ({ ...responsePayload }),
+ *     responseTopic: 'ai_response',          // optional – omit for fire-and-forget topics
+ *     topicConfig: { numPartitions: 1 },     // optional – passed to admin.createTopics
+ *   });
+ *
+ *   await service.start();
+ */
 export class KafkaService {
   /**
    * @param {Object} options
    * @param {Object} options.kafkaClientConfig
    * @param {Object} options.kafkaConsumerConfig
-   * @param {Object} options.topics
-   * @param {number} [options.maxConcurrent] – Số request AI xử lý đồng thời (default: 3)
+   * @param {number} [options.maxConcurrent=3]
    */
-  constructor({ kafkaClientConfig, kafkaConsumerConfig, topics, maxConcurrent = 3 }) {
-    this.topics = topics;
+  constructor({ kafkaClientConfig, kafkaConsumerConfig, maxConcurrent = 3 }) {
     this.kafka = new Kafka(kafkaClientConfig);
     this.producer = this.kafka.producer();
     this.consumer = this.kafka.consumer(kafkaConsumerConfig);
     this.admin = this.kafka.admin();
     this.limiter = new ConcurrencyLimiter(maxConcurrent);
+
+    /** @type {Map<string, { handler: Function, responseTopic?: string, topicConfig?: Object }>} */
+    this._topicHandlers = new Map();
   }
 
-  async ensureTopics() {
+  // ---------------------------------------------------------------------------
+  // Handler registration
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Register a handler for an incoming topic.
+   *
+   * @param {string}   incomingTopic         – Kafka topic to consume
+   * @param {Object}   registration
+   * @param {Function} registration.handler  – async (messageValue: Buffer) => responsePayload | null
+   * @param {string}   [registration.responseTopic]  – topic to produce the response to (omit for fire-and-forget)
+   * @param {Object}   [registration.topicConfig]    – admin createTopics config overrides
+   */
+  register(incomingTopic, { handler, responseTopic, topicConfig = {} }) {
+    if (typeof handler !== 'function') {
+      throw new TypeError(`KafkaService.register: handler for "${incomingTopic}" must be a function`);
+    }
+    this._topicHandlers.set(String(incomingTopic), { handler, responseTopic, topicConfig });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Topic provisioning
+  // ---------------------------------------------------------------------------
+
+  async _ensureTopics() {
+    const topicsToCreate = [];
+
+    for (const [incomingTopic, { responseTopic, topicConfig }] of this._topicHandlers) {
+      topicsToCreate.push({ topic: incomingTopic, numPartitions: 1, ...topicConfig });
+
+      if (responseTopic) {
+        topicsToCreate.push({ topic: responseTopic, numPartitions: 1 });
+      }
+    }
+
+    if (topicsToCreate.length === 0) {
+      return;
+    }
+
     await this.admin.connect();
-    await this.admin.createTopics({
-      topics: [
-        { topic: this.topics.request, numPartitions: 1 },
-        { topic: this.topics.response, numPartitions: 1 },
-      ],
-      waitForLeaders: true,
-    });
+    await this.admin.createTopics({ topics: topicsToCreate, waitForLeaders: true });
     await this.admin.disconnect();
 
-    console.log(`[KafkaService] Topics ready: ${this.topics.request}, ${this.topics.response}`);
+    const names = topicsToCreate.map((t) => t.topic).join(', ');
+    console.log(`[KafkaService] Topics ready: ${names}`);
   }
 
-  async start(onRequest) {
-    await this.ensureTopics();
+  // ---------------------------------------------------------------------------
+  // Start
+  // ---------------------------------------------------------------------------
 
+  async start() {
+    if (this._topicHandlers.size === 0) {
+      throw new Error('[KafkaService] No topic handlers registered. Call register() before start().');
+    }
+
+    await this._ensureTopics();
     await this.producer.connect();
     await this.consumer.connect();
-    await this.consumer.subscribe({ topic: this.topics.request });
 
-    console.log(`[KafkaService] Producer and consumer connected (maxConcurrent=${this.limiter.maxConcurrent})`);
+    for (const incomingTopic of this._topicHandlers.keys()) {
+      await this.consumer.subscribe({ topic: incomingTopic });
+    }
+
+    const topicList = [...this._topicHandlers.keys()].join(', ');
+    console.log(`[KafkaService] Subscribed to: ${topicList} (maxConcurrent=${this.limiter.maxConcurrent})`);
 
     await this.consumer.run({
       eachMessage: async ({ topic, message }) => {
-        if (topic !== this.topics.request) {
+        const registration = this._topicHandlers.get(topic);
+        if (!registration) {
+          console.warn(`[KafkaService] Received message on unregistered topic "${topic}" — ignoring`);
           return;
         }
 
+        const { handler, responseTopic } = registration;
+
         try {
-          const responsePayload = await this.limiter.run(() => onRequest(message.value));
+          const responsePayload = await this.limiter.run(() => handler(message.value));
 
-          console.log(
-            `[KafkaService] Sent ai_response for submission ${responsePayload.submissionId} source=${responsePayload.source}` +
-            ` | active=${this.limiter.activeCount} pending=${this.limiter.pendingCount}`
-          );
+          if (responseTopic && responsePayload != null) {
+            await this.producer.send({
+              topic: responseTopic,
+              messages: [{ value: JSON.stringify(responsePayload) }],
+            });
 
-          await this.producer.send({
-            topic: this.topics.response,
-            messages: [{ value: JSON.stringify(responsePayload) }],
-          });
+            console.log(
+              `[KafkaService] [${topic}] → [${responseTopic}]` +
+              ` submissionId=${responsePayload.submissionId ?? 'n/a'}` +
+              ` source=${responsePayload.source ?? 'n/a'}` +
+              ` | active=${this.limiter.activeCount} pending=${this.limiter.pendingCount}`
+            );
+          }
         } catch (error) {
-          console.error('[KafkaService] Failed to process request message:', error);
+          console.error(`[KafkaService] Error processing message from "${topic}":`, error);
         }
       },
     });

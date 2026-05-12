@@ -11,17 +11,9 @@ export const createRuntime = () => {
   validateEnv();
 
   const providerRegistry = new ProviderRegistry(providerConfig);
-  const draftStage = providerConfig?.pipeline?.draft || {};
-  const refinerStage = providerConfig?.pipeline?.refiner || {};
 
-  const draftProvider = providerRegistry.getProvider(
-    draftStage.provider || providerConfig.activeProvider,
-    draftStage.options || {}
-  );
-  const refinerProvider = providerRegistry.getProvider(
-    refinerStage.provider || providerConfig.activeProvider,
-    refinerStage.options || {}
-  );
+  const draftProvider = providerRegistry.getStageProvider(providerConfig.pipeline.draft);
+  const refinerProvider = providerRegistry.getStageProvider(providerConfig.pipeline.refiner);
 
   const fallbackHintService = new FallbackHintService();
   const hintGenerationService = new HintGenerationService({
@@ -36,9 +28,19 @@ export const createRuntime = () => {
   const kafkaService = new KafkaService({
     kafkaClientConfig,
     kafkaConsumerConfig,
-    topics: kafkaTopics,
     maxConcurrent: env.aiMaxConcurrent,
   });
+
+  // ── Register topic handlers ────────────────────────────────────────────────
+  // To add a new topic in the future, just add another register() call here.
+  kafkaService.register(kafkaTopics.request, {
+    handler: (messageValue) => requestHandler.handleKafkaMessage(messageValue),
+    responseTopic: kafkaTopics.response,
+  });
+  // kafkaService.register(kafkaTopics.someOtherTopic, {
+  //   handler: (messageValue) => someOtherHandler.handle(messageValue),
+  //   responseTopic: kafkaTopics.someOtherResponse,   // omit for fire-and-forget
+  // });
 
   return {
     provider: draftProvider,
@@ -52,8 +54,9 @@ export const createRuntime = () => {
 export const startService = async () => {
   const runtime = createRuntime();
 
-  console.log(`[AI Service] Draft provider: ${runtime.draftProvider.name} | model=${runtime.draftProvider.config?.model || 'unknown'}`);
+  console.log(`[AI Service] Draft provider  : ${runtime.draftProvider.name} | model=${runtime.draftProvider.config?.model || 'unknown'}`);
   console.log(`[AI Service] Refiner provider: ${runtime.refinerProvider.name} | model=${runtime.refinerProvider.config?.model || 'unknown'}`);
-  console.log(`[AI Service] Max concurrent: ${env.aiMaxConcurrent} | Skip refiner min length: ${env.aiSkipRefinerMinLength}`);
-  await runtime.kafkaService.start((messageValue) => runtime.requestHandler.handleKafkaMessage(messageValue));
+  console.log(`[AI Service] Max concurrent  : ${env.aiMaxConcurrent} | Skip refiner min length: ${env.aiSkipRefinerMinLength}`);
+
+  await runtime.kafkaService.start();
 };
