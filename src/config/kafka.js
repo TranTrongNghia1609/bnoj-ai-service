@@ -3,6 +3,8 @@ import { env } from './env.js';
 export const kafkaTopics = {
   request: env.kafkaRequestTopic,
   response: env.kafkaResponseTopic,
+  testCasePlanRequest: env.kafkaTestCasePlanRequestTopic,
+  testCasePlanResponse: env.kafkaTestCasePlanResponseTopic,
 };
 
 export const kafkaClientConfig = {

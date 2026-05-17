@@ -4,7 +4,9 @@ import { providerConfig } from './config/providers.js';
 import { ProviderRegistry } from './providers/ProviderRegistry.js';
 import { FallbackHintService } from './services/FallbackHintService.js';
 import { HintGenerationService } from './services/HintGenerationService.js';
+import { TestCasePlanService } from './services/TestCasePlanService.js';
 import { RequestHandler } from './messaging/handlers/RequestHandler.js';
+import { TestCasePlanHandler } from './messaging/handlers/TestCasePlanHandler.js';
 import { KafkaService } from './messaging/KafkaService.js';
 
 export const createRuntime = () => {
@@ -25,6 +27,11 @@ export const createRuntime = () => {
 
   const requestHandler = new RequestHandler({ hintGenerationService });
 
+  // ── Test Case Plan pipeline ────────────────────────────────────────────────
+  // Uses the same draftProvider as the hint pipeline (configurable separately if needed)
+  const testCasePlanService = new TestCasePlanService({ draftProvider });
+  const testCasePlanHandler = new TestCasePlanHandler({ testCasePlanService });
+
   const kafkaService = new KafkaService({
     kafkaClientConfig,
     kafkaConsumerConfig,
@@ -32,15 +39,17 @@ export const createRuntime = () => {
   });
 
   // ── Register topic handlers ────────────────────────────────────────────────
-  // To add a new topic in the future, just add another register() call here.
+  // Hint generation
   kafkaService.register(kafkaTopics.request, {
     handler: (messageValue) => requestHandler.handleKafkaMessage(messageValue),
     responseTopic: kafkaTopics.response,
   });
-  // kafkaService.register(kafkaTopics.someOtherTopic, {
-  //   handler: (messageValue) => someOtherHandler.handle(messageValue),
-  //   responseTopic: kafkaTopics.someOtherResponse,   // omit for fire-and-forget
-  // });
+
+  // Test case plan generation
+  kafkaService.register(kafkaTopics.testCasePlanRequest, {
+    handler: (messageValue) => testCasePlanHandler.handleKafkaMessage(messageValue),
+    responseTopic: kafkaTopics.testCasePlanResponse,
+  });
 
   return {
     provider: draftProvider,
@@ -48,6 +57,7 @@ export const createRuntime = () => {
     refinerProvider,
     kafkaService,
     requestHandler,
+    testCasePlanHandler,
   };
 };
 

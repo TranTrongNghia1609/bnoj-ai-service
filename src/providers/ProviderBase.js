@@ -90,24 +90,25 @@ export class ProviderBase {
   }
 
   // ---------------------------------------------------------------------------
-  // Shared generateHint — retry loop + circuit breaker (do not override)
+  // Shared core — retry loop + circuit breaker (do not override)
   // ---------------------------------------------------------------------------
 
   /**
-   * Generate a hint for the given request.
+   * Generic text-generation entry point.
+   * Accepts a pre-built prompt directly (no _buildPrompt called here).
    *
-   * @param {Object} request   – normalized request from RequestHandler
-   * @param {Object} [options] – { stage, draftHint, model, prompt }
-   * @returns {Promise<{ok, hint, model, stage, errorType?, errorMessage?, retryAfterMs?}>}
+   * @param {string|Array} prompt     – text string or messages array
+   * @param {Object} [options]        – { model, stage }
+   * @returns {Promise<{ ok, text, model, stage, errorType?, errorMessage?, retryAfterMs? }>}
    */
-  async generateHint(request, options = {}) {
-    const stage = String(options?.stage || 'draft').toLowerCase();
+  async generate(prompt, options = {}) {
+    const stage = String(options?.stage || 'generate').toLowerCase();
     const modelName = String(options?.model || this.config?.model || '').trim();
 
     if (!modelName) {
       return {
         ok: false,
-        hint: null,
+        text: null,
         model: null,
         stage,
         errorType: 'CONFIG_ERROR',
@@ -115,8 +116,6 @@ export class ProviderBase {
         retryAfterMs: 0,
       };
     }
-
-    const prompt = options?.prompt ?? this._buildPrompt(request, options);
 
     const maxRetries = Math.max(0, this.config?.maxRetries ?? 0);
     const maxAttempts = maxRetries + 1;
@@ -129,10 +128,10 @@ export class ProviderBase {
         );
 
         if (cbResult.circuitOpen) {
-          console.warn(`[${this.name}] Circuit OPEN – skipping ${stage} stage (attempt ${attempt})`);
+          console.warn(`[${this.name}] Circuit OPEN – skipping ${stage} (attempt ${attempt})`);
           return {
             ok: false,
-            hint: null,
+            text: null,
             model: modelName,
             stage,
             errorType: 'CIRCUIT_OPEN',
@@ -141,12 +140,7 @@ export class ProviderBase {
           };
         }
 
-        return {
-          ok: true,
-          hint: cbResult.result,
-          model: modelName,
-          stage,
-        };
+        return { ok: true, text: cbResult.result, model: modelName, stage };
       } catch (error) {
         lastError = error;
         const retryable = this._isRetryable(error);
@@ -168,12 +162,27 @@ export class ProviderBase {
 
     return {
       ok: false,
-      hint: null,
+      text: null,
       model: modelName,
       stage,
       errorType: this._classifyError(lastError),
       errorMessage: getSafeErrorMessage(lastError),
       retryAfterMs: this._parseRetryDelayMs(lastError),
     };
+  }
+
+  /**
+   * Generate a hint for the given request.
+   * Delegates to generate() — kept for backward compatibility.
+   *
+   * @param {Object} request   – normalized request from RequestHandler
+   * @param {Object} [options] – { stage, draftHint, model, prompt }
+   * @returns {Promise<{ ok, hint, model, stage, errorType?, errorMessage?, retryAfterMs? }>}
+   */
+  async generateHint(request, options = {}) {
+    const prompt = options?.prompt ?? this._buildPrompt(request, options);
+    const result = await this.generate(prompt, options);
+    // Map generic 'text' field back to 'hint' for backward compatibility
+    return { ...result, hint: result.text };
   }
 }
