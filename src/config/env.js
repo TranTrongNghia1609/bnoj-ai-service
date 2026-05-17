@@ -37,8 +37,10 @@ export const env = {
     .filter(Boolean),
   kafkaUser: readString('KAFKA_USER', ''),
   kafkaPassword: readString('KAFKA_PASSWORD', ''),
-  kafkaRequestTopic: readString('AI_REQUEST_TOPIC', 'ai_request'),
-  kafkaResponseTopic: readString('AI_RESPONSE_TOPIC', 'ai_response'),
+  kafkaRequestTopic: readString('KAFKA_AI_HINT_REQUEST', 'ai.hint.request'),
+  kafkaResponseTopic: readString('KAFKA_AI_HINT_RESPONSE', 'ai.hint.response'),
+  kafkaTestCasePlanRequestTopic: readString('KAFKA_AI_TEST_CASE_PLAN_REQUEST', 'ai.test-case-plan.request'),
+  kafkaTestCasePlanResponseTopic: readString('KAFKA_AI_TEST_CASE_PLAN_RESPONSE', 'ai.test-case-plan.response'),
 
   // ---------------------------------------------------------------------------
   // Gemini
