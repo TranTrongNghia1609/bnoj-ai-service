@@ -5,8 +5,10 @@ import { ProviderRegistry } from './providers/ProviderRegistry.js';
 import { FallbackHintService } from './services/FallbackHintService.js';
 import { HintGenerationService } from './services/HintGenerationService.js';
 import { TestCasePlanService } from './services/TestCasePlanService.js';
+import { TestCaseCodeService } from './services/TestCaseCodeService.js';
 import { RequestHandler } from './messaging/handlers/RequestHandler.js';
 import { TestCasePlanHandler } from './messaging/handlers/TestCasePlanHandler.js';
+import { TestCaseCodeHandler } from './messaging/handlers/TestCaseCodeHandler.js';
 import { KafkaService } from './messaging/KafkaService.js';
 
 export const createRuntime = () => {
@@ -32,6 +34,10 @@ export const createRuntime = () => {
   const testCasePlanService = new TestCasePlanService({ draftProvider });
   const testCasePlanHandler = new TestCasePlanHandler({ testCasePlanService });
 
+  // ── Test Case Code pipeline ────────────────────────────────────────────────
+  const testCaseCodeService = new TestCaseCodeService({ draftProvider });
+  const testCaseCodeHandler = new TestCaseCodeHandler({ testCaseCodeService });
+
   const kafkaService = new KafkaService({
     kafkaClientConfig,
     kafkaConsumerConfig,
@@ -51,6 +57,12 @@ export const createRuntime = () => {
     responseTopic: kafkaTopics.testCasePlanResponse,
   });
 
+  // Test case code generation
+  kafkaService.register(kafkaTopics.testCaseCodeRequest, {
+    handler: (messageValue) => testCaseCodeHandler.handleKafkaMessage(messageValue),
+    responseTopic: kafkaTopics.testCaseCodeResponse,
+  });
+
   return {
     provider: draftProvider,
     draftProvider,
@@ -58,6 +70,7 @@ export const createRuntime = () => {
     kafkaService,
     requestHandler,
     testCasePlanHandler,
+    testCaseCodeHandler,
   };
 };
 
