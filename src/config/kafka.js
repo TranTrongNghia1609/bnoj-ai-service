@@ -5,6 +5,8 @@ export const kafkaTopics = {
   response: env.kafkaResponseTopic,
   testCasePlanRequest: env.kafkaTestCasePlanRequestTopic,
   testCasePlanResponse: env.kafkaTestCasePlanResponseTopic,
+  testCaseCodeRequest: env.kafkaTestCaseCodeRequestTopic,
+  testCaseCodeResponse: env.kafkaTestCaseCodeResponseTopic,
 };
 
 export const kafkaClientConfig = {

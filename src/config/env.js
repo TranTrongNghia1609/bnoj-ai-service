@@ -41,6 +41,8 @@ export const env = {
   kafkaResponseTopic: readString('KAFKA_AI_HINT_RESPONSE', 'ai.hint.response'),
   kafkaTestCasePlanRequestTopic: readString('KAFKA_AI_TEST_CASE_PLAN_REQUEST', 'ai.test-case-plan.request'),
   kafkaTestCasePlanResponseTopic: readString('KAFKA_AI_TEST_CASE_PLAN_RESPONSE', 'ai.test-case-plan.response'),
+  kafkaTestCaseCodeRequestTopic: readString('KAFKA_AI_TEST_CASE_CODE_REQUEST', 'ai.test-case-code.request'),
+  kafkaTestCaseCodeResponseTopic: readString('KAFKA_AI_TEST_CASE_CODE_RESPONSE', 'ai.test-case-code.response'),
 
   // ---------------------------------------------------------------------------
   // Gemini
