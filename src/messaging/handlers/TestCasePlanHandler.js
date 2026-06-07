@@ -34,6 +34,8 @@ export class TestCasePlanHandler {
       inputConstraint: request?.inputConstraint || '',
       outputConstraint: request?.outputConstraint || '',
       numberOfTestCases,
+      inputExample: request?.inputExample || '',
+      outputExample: request?.outputExample || '',
     };
   }
 

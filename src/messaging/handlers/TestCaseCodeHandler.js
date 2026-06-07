@@ -35,6 +35,9 @@ export class TestCaseCodeHandler {
       feedback: request?.feedback || null,
       previousInputCode: request?.previousInputCode || null,
       previousOutputCode: request?.previousOutputCode || null,
+      inputExample: request?.inputExample || '',
+      outputExample: request?.outputExample || '',
+      planVersionNumber: request?.planVersionNumber || null,
     };
   }
 
@@ -73,6 +76,7 @@ export class TestCaseCodeHandler {
       source: generated.source,
       model: generated.model,
       generatedAt: new Date().toISOString(),
+      planVersionNumber: requestData.planVersionNumber,
     };
   }
 }

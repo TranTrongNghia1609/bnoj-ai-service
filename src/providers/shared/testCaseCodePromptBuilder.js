@@ -33,6 +33,8 @@ const formatCategories = (categories) => {
  * @param {string} request.statement
  * @param {string} request.inputConstraint
  * @param {string} request.outputConstraint
+ * @param {string} [request.inputExample]
+ * @param {string} [request.outputExample]
  * @param {Array}  request.categories
  * @param {string} [request.feedback]
  * @param {string} [request.previousInputCode]
@@ -43,6 +45,8 @@ export const buildTestCaseCodePrompt = (request) => {
   const statement = trimText(request?.statement, 3000);
   const inputConstraint = trimText(request?.inputConstraint, 1000);
   const outputConstraint = trimText(request?.outputConstraint, 1000);
+  const inputExample = trimText(request?.inputExample, 2000);
+  const outputExample = trimText(request?.outputExample, 2000);
   const categoriesText = formatCategories(request?.categories);
 
   const feedbackBlock = request?.feedback
@@ -53,6 +57,10 @@ export const buildTestCaseCodePrompt = (request) => {
     request?.previousInputCode || request?.previousOutputCode
       ? `\n<previous_code>\n<previous_input_code>\n${trimText(request.previousInputCode, 6000) || '(none)'}\n</previous_input_code>\n\n<previous_output_code>\n${trimText(request.previousOutputCode, 6000) || '(none)'}\n</previous_output_code>\n</previous_code>\n`
       : '';
+
+  const sampleBlock = (inputExample || outputExample)
+    ? `\n<sample_io>\n<input_data>\n${inputExample || '(not provided)'}\n</input_data>\n<output_data>\n${outputExample || '(not provided)'}\n</output_data>\n</sample_io>\n`
+    : '';
 
   return `You are an expert competitive-programming problem setter and Python programmer.
 
@@ -79,11 +87,12 @@ ${inputConstraint || 'Not specified.'}
 <output_constraints>
 ${outputConstraint || 'Not specified.'}
 </output_constraints>
-
+${sampleBlock}
 <test_plan_categories>
 ${categoriesText}
 </test_plan_categories>
-${feedbackBlock}${previousCodeBlock}
+${feedbackBlock}
+${previousCodeBlock}
 OUTPUT — return ONLY a JSON object with two keys:
 {
   "inputCode": "<full Python input generation script as a string>",
@@ -92,14 +101,18 @@ OUTPUT — return ONLY a JSON object with two keys:
 
 RULES:
 1. Both scripts must be complete, runnable Python 3 programs.
-2. The input generation script should print to stdout in the exact format the problem expects.
-3. The output/solution script should read from stdin and print the correct answer to stdout.
-4. Use "import random" and "random.seed()" in the input generation script for reproducibility when needed.
-5. The input script should respect ALL stated constraints (value ranges, array sizes, etc.).
-6. Print a clear separated by exactly the string: ---TEST_BOUNDARY--- between each test case in the input generation script so individual tests can be easily distinguished.
-7. Start your response with { and end with }. No Markdown fences, no extra text.
-8. Escape newlines and special characters properly in the JSON string values.
-${request?.feedback ? '9. Pay careful attention to the user_feedback section and adjust your code accordingly.' : ''}
+2. inputCode MUST produce stdout in EXACTLY the same format as the content inside <input_data> in <sample_io>. Match whitespace, newlines, and ordering precisely.
+3. outputCode MUST read stdin and produce stdout in EXACTLY the same format as the content inside <output_data> in <sample_io>.
+4. CRITICAL — inputCode MUST NOT print anything other than raw test case data and the separator ---TEST_BOUNDARY---. No labels, no headers, no comments, no debug lines. Every character printed by inputCode goes directly into the .in file.
+5. CRITICAL — outputCode MUST NOT print anything other than the correct answer. No labels, no headers, no debug lines. Every character printed by outputCode goes directly into the .out file.
+6. Before writing your final answer, mentally trace: run inputCode -> verify stdout format matches <input_data> -> feed that input to outputCode -> verify outputCode produces content matching <output_data>.
+7. Use "import random" and "random.seed(42)" in inputCode for reproducibility.
+8. inputCode must respect ALL stated constraints (value ranges, array sizes, data types).
+9. Separate each test case block in inputCode by printing exactly ---TEST_BOUNDARY--- on its own line (and nothing else on that line).
+10. Only use Python standard library modules (random, sys, math, itertools, collections, etc.). Do NOT import third-party packages.
+11. Start your response with { and end with }. No Markdown fences, no extra text.
+12. Escape newlines and special characters properly inside the JSON string values.
+${request?.feedback ? '13. Pay careful attention to the user_feedback section and adjust your code accordingly.' : ''}
 Generate the code now.`;
 };
 
@@ -120,7 +133,13 @@ export const buildTestCaseCodeMessages = (request) => {
   const statement = trimText(request?.statement, 3000);
   const inputConstraint = trimText(request?.inputConstraint, 1000);
   const outputConstraint = trimText(request?.outputConstraint, 1000);
+  const inputExample = trimText(request?.inputExample, 2000);
+  const outputExample = trimText(request?.outputExample, 2000);
   const categoriesText = formatCategories(request?.categories);
+
+  const sampleBlock = (inputExample || outputExample)
+    ? `\n\nReference I/O (your code MUST produce output in this exact format):\n<input_data>\n${inputExample || '(not provided)'}\n</input_data>\n<output_data>\n${outputExample || '(not provided)'}\n</output_data>`
+    : '';
 
   let userContent = `Generate two Python scripts for the following problem.
 
@@ -128,7 +147,7 @@ Problem:
 ${statement}
 
 Input constraints: ${inputConstraint || 'Not specified.'}
-Output constraints: ${outputConstraint || 'Not specified.'}
+Output constraints: ${outputConstraint || 'Not specified.'}${sampleBlock}
 
 Test plan categories:
 ${categoriesText}
@@ -139,10 +158,16 @@ Return a JSON object:
   "outputCode": "<full Python solution script>"
 }
 
-The input script generates valid test input to stdout.
-The output script reads stdin and prints the correct answer to stdout.
-Print a clear separated by exactly the string: ---TEST_BOUNDARY--- between each test case in the input generation script so individual tests can be easily distinguished.
-Start with { and end with }.`;
+Rules:
+- inputCode must print to stdout in EXACTLY the format shown inside <input_data> above. Match every character, space, and newline.
+- outputCode must read from stdin and print EXACTLY the format shown inside <output_data> above.
+- CRITICAL: inputCode MUST NOT print anything other than raw test case data and the ---TEST_BOUNDARY--- separator. No labels, no headers, no debug lines whatsoever — every character printed becomes part of the .in file.
+- CRITICAL: outputCode MUST NOT print anything other than the correct answer — every character printed becomes part of the .out file.
+- Before finalizing, mentally verify: inputCode output matches <input_data> format; feeding the <input_data> sample to outputCode produces the <output_data> sample.
+- Only use Python standard library (random, sys, math, itertools, collections, etc.). No third-party packages.
+- Use random.seed(42) in inputCode for reproducibility.
+- Separate each test case in inputCode with exactly ---TEST_BOUNDARY--- on its own line (nothing else on that line).
+- Start with { and end with }.`;
 
   if (request?.feedback) {
     userContent += `\n\nUser feedback on previous code:\n${trimText(request.feedback, 2000)}`;

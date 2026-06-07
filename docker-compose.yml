@@ -1,0 +1,5 @@
+services:
+  app:
+    image: binhhvt/ai:1.0
+    env_file:
+      - .env # Đường dẫn tới file .env của bạn
