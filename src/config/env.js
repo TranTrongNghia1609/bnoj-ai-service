@@ -6,6 +6,7 @@ dotenv.config({ path: path.resolve(process.cwd(), envFile) });
 
 const readString = (name, defaultValue = '') => {
   const rawValue = process.env[name];
+  console.log(`${name}: ${JSON.stringify(rawValue, null, 2)}`);
   if (rawValue === undefined || rawValue === null) {
     return defaultValue;
   }

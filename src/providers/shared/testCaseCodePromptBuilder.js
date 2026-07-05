@@ -112,7 +112,8 @@ RULES:
 10. Only use Python standard library modules (random, sys, math, itertools, collections, etc.). Do NOT import third-party packages.
 11. Start your response with { and end with }. No Markdown fences, no extra text.
 12. Escape newlines and special characters properly inside the JSON string values.
-${request?.feedback ? '13. Pay careful attention to the user_feedback section and adjust your code accordingly.' : ''}
+13. Don't generate example input/output
+${request?.feedback ? '14. Pay careful attention to the user_feedback section and adjust your code accordingly.' : ''}
 Generate the code now.`;
 };
 
@@ -167,6 +168,7 @@ Rules:
 - Only use Python standard library (random, sys, math, itertools, collections, etc.). No third-party packages.
 - Use random.seed(42) in inputCode for reproducibility.
 - Separate each test case in inputCode with exactly ---TEST_BOUNDARY--- on its own line (nothing else on that line).
+- Don't generate example input/output in your code.
 - Start with { and end with }.`;
 
   if (request?.feedback) {
