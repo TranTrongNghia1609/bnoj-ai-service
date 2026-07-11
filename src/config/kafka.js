@@ -22,5 +22,7 @@ export const kafkaClientConfig = {
 };
 
 export const kafkaConsumerConfig = {
-  groupId: 'ai-recommender-group',
+    groupId: 'ai-recommender-group',
+    sessionTimeout: 120000, // Increased to 60 seconds (Default is 30000ms)
+    heartbeatInterval: 20000, // Increased to 20 seconds (Default is 3000ms)
 };

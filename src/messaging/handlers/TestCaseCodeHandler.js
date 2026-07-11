@@ -38,6 +38,7 @@ export class TestCaseCodeHandler {
       inputExample: request?.inputExample || '',
       outputExample: request?.outputExample || '',
       planVersionNumber: request?.planVersionNumber || null,
+      mode: request?.mode || 'ai',
     };
   }
 
@@ -77,6 +78,7 @@ export class TestCaseCodeHandler {
       model: generated.model,
       generatedAt: new Date().toISOString(),
       planVersionNumber: requestData.planVersionNumber,
+      mode: requestData.mode || 'ai',
     };
   }
 }

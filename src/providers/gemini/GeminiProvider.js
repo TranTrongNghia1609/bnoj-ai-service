@@ -37,17 +37,27 @@ export class GeminiProvider extends ProviderBase {
   // Lazy model initialisation
   // ---------------------------------------------------------------------------
 
-  _getModel(modelName) {
+  _getModel(modelName, options = {}) {
     if (!this.client) {
       this.client = new GoogleGenerativeAI(this.config.apiKey);
     }
 
-    if (this.models.has(modelName)) {
-      return this.models.get(modelName);
+    const generationConfig = {
+      maxOutputTokens: options?.maxTokens || this.config.maxTokens || 8192,
+      temperature: this.config.temperature ?? 0.7,
+      ...(options?.responseFormat === 'json' ? { responseMimeType: 'application/json' } : {}),
+    };
+
+    const cacheKey = `${modelName}:${JSON.stringify(generationConfig)}`;
+    if (this.models.has(cacheKey)) {
+      return this.models.get(cacheKey);
     }
 
-    const model = this.client.getGenerativeModel({ model: modelName });
-    this.models.set(modelName, model);
+    const model = this.client.getGenerativeModel({
+      model: modelName,
+      generationConfig,
+    });
+    this.models.set(cacheKey, model);
     return model;
   }
 
@@ -55,10 +65,17 @@ export class GeminiProvider extends ProviderBase {
   // API call — delegates to @google/generative-ai
   // ---------------------------------------------------------------------------
 
-  async _callApi(prompt, modelName, _stage) {
-    const model = this._getModel(modelName);
+  async _callApi(prompt, modelName, _stage, options = {}) {
+    const model = this._getModel(modelName, options);
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    return response.text();
+    const text = response.text();
+    const finishReason = response.candidates?.[0]?.finishReason || null;
+
+    if (finishReason === 'MAX_TOKENS') {
+      console.warn(`[GeminiProvider] Output truncated by token limit (finishReason=${finishReason}, model=${modelName})`);
+    }
+
+    return { text, finishReason };
   }
 }

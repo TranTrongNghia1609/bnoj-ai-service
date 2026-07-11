@@ -50,20 +50,48 @@ export class OpenAIProvider extends ProviderBase {
   // API call — delegates to openai v4 SDK
   // ---------------------------------------------------------------------------
 
-  async _callApi(messages, modelName, _stage) {
+  async _callApi(messages, modelName, _stage, options = {}) {
     const client = this._getClient();
-
-    const completion = await client.chat.completions.create({
+    const maxTokens = options?.maxTokens || this.config.maxTokens || 8192;
+    const requestPayload = {
       model: modelName,
       messages,
       temperature: this.config.temperature ?? 0.7,
-      max_tokens: this.config.maxTokens ?? 2048,
-    });
+      max_tokens: maxTokens,
+    };
 
-    const content = completion.choices?.[0]?.message?.content;
+    let completion;
+    if (options?.responseFormat === 'json') {
+      try {
+        completion = await client.chat.completions.create({
+          ...requestPayload,
+          response_format: { type: 'json_object' },
+        });
+      } catch (formatErr) {
+        // Many third-party OpenAI proxies reject response_format with 400 Bad Request
+        if (String(formatErr?.message || '').toLowerCase().includes('response_format') || formatErr?.status === 400) {
+          console.warn(`[OpenAIProvider] Proxy/Model "${modelName}" does not support response_format. Retrying without it...`);
+          completion = await client.chat.completions.create(requestPayload);
+        } else {
+          throw formatErr;
+        }
+      }
+    } else {
+      completion = await client.chat.completions.create(requestPayload);
+    }
+
+    const choice = completion.choices?.[0];
+    const content = choice?.message?.content;
+    const finishReason = choice?.finish_reason || null;
+
     if (!content) {
       throw new Error('OpenAI returned an empty response');
     }
-    return content;
+
+    if (finishReason === 'length' || finishReason === 'max_tokens') {
+      console.warn(`[OpenAIProvider] Output truncated by token limit (finish_reason=${finishReason}, model=${modelName}, max_tokens=${maxTokens})`);
+    }
+
+    return { text: content, finishReason };
   }
 }

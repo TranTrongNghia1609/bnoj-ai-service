@@ -57,7 +57,7 @@ export class ProviderBase {
    * @param {string}       stage      – 'draft' | 'refiner'
    * @returns {Promise<string>}
    */
-  async _callApi(_prompt, _modelName, _stage) {
+  async _callApi(_prompt, _modelName, _stage, _options) {
     throw new Error(`${this.name}: _callApi() must be implemented`);
   }
 
@@ -124,7 +124,7 @@ export class ProviderBase {
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
         const cbResult = await this.circuitBreaker.execute(() =>
-          this._callApi(prompt, modelName, stage)
+          this._callApi(prompt, modelName, stage, options)
         );
 
         if (cbResult.circuitOpen) {
@@ -140,7 +140,11 @@ export class ProviderBase {
           };
         }
 
-        return { ok: true, text: cbResult.result, model: modelName, stage };
+        const rawResult = cbResult.result;
+        const text = typeof rawResult === 'object' && rawResult !== null ? rawResult.text : rawResult;
+        const finishReason = typeof rawResult === 'object' && rawResult !== null ? rawResult.finishReason : null;
+
+        return { ok: true, text, finishReason, model: modelName, stage };
       } catch (error) {
         lastError = error;
         const retryable = this._isRetryable(error);

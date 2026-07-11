@@ -185,3 +185,146 @@ Rules:
     { role: 'user', content: userContent },
   ];
 };
+
+// ---------------------------------------------------------------------------
+// Input-only prompt (user-solution mode — Gemini / single-turn providers)
+// ---------------------------------------------------------------------------
+
+/**
+ * When the user provides their own solution code, we only need AI to generate
+ * the input generation script. This prompt omits all output/solution instructions.
+ *
+ * @param {Object} request
+ * @returns {string}
+ */
+export const buildTestCaseInputOnlyPrompt = (request) => {
+  const statement = trimText(request?.statement, 3000);
+  const inputConstraint = trimText(request?.inputConstraint, 1000);
+  const outputConstraint = trimText(request?.outputConstraint, 1000);
+  const inputExample = trimText(request?.inputExample, 2000);
+  const categoriesText = formatCategories(request?.categories);
+
+  const feedbackBlock = request?.feedback
+    ? `\n<user_feedback>\nThe user has reviewed the previous code and requests the following changes:\n${trimText(request.feedback, 2000)}\n</user_feedback>\n`
+    : '';
+
+  const previousCodeBlock = request?.previousInputCode
+    ? `\n<previous_code>\n<previous_input_code>\n${trimText(request.previousInputCode, 6000)}\n</previous_input_code>\n</previous_code>\n`
+    : '';
+
+  const sampleInputBlock = inputExample
+    ? `\n<sample_input>\n${inputExample}\n</sample_input>\n`
+    : '';
+
+  return `You are an expert competitive-programming problem setter and Python programmer.
+
+Generate ONE Python script for the problem below:
+
+**Input Generation Code** — a Python script that generates valid test input data.
+It should be runnable as a standalone script and output to stdout.
+It must generate input that matches the problem's input format and constraints.
+The script should use randomization (import random) to produce varied test cases
+according to the test plan categories described below.
+
+NOTE: You do NOT need to generate a solution/output script. The user already has their own solution.
+Only generate the input generation code.
+
+<problem_statement>
+${statement}
+</problem_statement>
+
+<input_constraints>
+${inputConstraint || 'Not specified.'}
+</input_constraints>
+
+<output_constraints>
+${outputConstraint || 'Not specified.'}
+</output_constraints>
+${sampleInputBlock}
+<test_plan_categories>
+${categoriesText}
+</test_plan_categories>
+${feedbackBlock}
+${previousCodeBlock}
+OUTPUT — return ONLY a JSON object with one key:
+{
+  "inputCode": "<full Python input generation script as a string>"
+}
+
+RULES:
+1. The script must be a complete, runnable Python 3 program.
+2. inputCode MUST produce stdout in EXACTLY the same format as the input described in the problem. Match whitespace, newlines, and ordering precisely.
+3. CRITICAL — inputCode MUST NOT print anything other than raw test case data and the separator ---TEST_BOUNDARY---. No labels, no headers, no comments, no debug lines.
+4. Use "import random" and "random.seed(42)" in inputCode for reproducibility.
+5. inputCode must respect ALL stated constraints (value ranges, array sizes, data types).
+6. Separate each test case block by printing exactly ---TEST_BOUNDARY--- on its own line.
+7. Only use Python standard library modules. Do NOT import third-party packages.
+8. Start your response with { and end with }. No Markdown fences, no extra text.
+9. Escape newlines and special characters properly inside the JSON string values.
+10. Don't generate example input/output.
+${request?.feedback ? '11. Pay careful attention to the user_feedback section and adjust your code accordingly.' : ''}
+Generate the code now.`;
+};
+
+// ---------------------------------------------------------------------------
+// Input-only prompt (user-solution mode — OpenAI multi-turn chat messages)
+// ---------------------------------------------------------------------------
+
+const INPUT_ONLY_SYSTEM_PROMPT = `You are an expert competitive-programming problem setter and Python programmer.
+You generate a Python script for input generation only. The user already has their own solution.
+Output ONLY a valid JSON object with key "inputCode".
+Start with { and end with }. No Markdown, no prose.`;
+
+/**
+ * @param {Object} request
+ * @returns {Array<{role: string, content: string}>}
+ */
+export const buildTestCaseInputOnlyMessages = (request) => {
+  const statement = trimText(request?.statement, 3000);
+  const inputConstraint = trimText(request?.inputConstraint, 1000);
+  const outputConstraint = trimText(request?.outputConstraint, 1000);
+  const inputExample = trimText(request?.inputExample, 2000);
+  const categoriesText = formatCategories(request?.categories);
+
+  let userContent = `Generate a Python input generation script for the following problem.
+The user already has their own solution — you only need to generate input test data.
+
+Problem:
+${statement}
+
+Input constraints: ${inputConstraint || 'Not specified.'}
+Output constraints: ${outputConstraint || 'Not specified.'}`;
+
+  if (inputExample) {
+    userContent += `\n\nReference input format (your code MUST produce input in this exact format):\n<input_data>\n${inputExample}\n</input_data>`;
+  }
+
+  userContent += `\n\nTest plan categories:\n${categoriesText}
+
+Return a JSON object:
+{
+  "inputCode": "<full Python input generation script>"
+}
+
+Rules:
+- inputCode must print to stdout in EXACTLY the format shown inside <input_data> above.
+- CRITICAL: inputCode MUST NOT print anything other than raw test case data and the ---TEST_BOUNDARY--- separator.
+- Only use Python standard library (random, sys, math, itertools, collections, etc.).
+- Use random.seed(42) in inputCode for reproducibility.
+- Separate each test case with exactly ---TEST_BOUNDARY--- on its own line.
+- Don't generate example input/output.
+- Start with { and end with }.`;
+
+  if (request?.feedback) {
+    userContent += `\n\nUser feedback on previous code:\n${trimText(request.feedback, 2000)}`;
+  }
+
+  if (request?.previousInputCode) {
+    userContent += `\n\nPrevious input code:\n${trimText(request.previousInputCode, 6000)}`;
+  }
+
+  return [
+    { role: 'system', content: INPUT_ONLY_SYSTEM_PROMPT },
+    { role: 'user', content: userContent },
+  ];
+};
