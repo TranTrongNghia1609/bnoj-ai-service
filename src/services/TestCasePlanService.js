@@ -30,7 +30,7 @@ export class TestCasePlanService {
    * @returns {Promise<{ categories: Array, source: string, model: string|null }>}
    */
   async generate(requestData) {
-    const basePrompt = this.draftProvider.name === 'openai'
+    const basePrompt = (this.draftProvider.name === 'openai' || this.draftProvider.name === 'anthropic')
       ? buildTestCasePlanMessages(requestData)
       : buildTestCasePlanPrompt(requestData);
 
@@ -67,7 +67,7 @@ export class TestCasePlanService {
         continue;
       }
 
-      const raw = this._stripFences(String(result.text).trim());
+      const raw = (result.text).trim();
       console.log(`[TestCasePlanService] Raw response (attempt ${attempt}, length=${raw.length}, first 300 chars): ${raw.slice(0, 300)}`);
 
       try {
@@ -130,7 +130,16 @@ export class TestCasePlanService {
   }
 
   _stripFences(text) {
-    return text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    const startIndex = text.indexOf('{');
+    const endIndex = text.lastIndexOf('}');
+
+    // If we found both braces and the closing brace is after the opening brace
+    if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+      return text.substring(startIndex, endIndex + 1);
+    }
+
+    // Fallback just in case (though JSON.parse will likely fail anyway if no braces exist)
+    return text.trim();
   }
 
   _normalizeCategory(value) {

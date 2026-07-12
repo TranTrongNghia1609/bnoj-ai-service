@@ -14,15 +14,22 @@ export const kafkaClientConfig = {
   brokers: env.kafkaBrokers,
   sasl: env.kafkaUser && env.kafkaPassword
     ? {
-        mechanism: 'PLAIN',
-        username: env.kafkaUser,
-        password: env.kafkaPassword,
-      }
+      mechanism: 'PLAIN',
+      username: env.kafkaUser,
+      password: env.kafkaPassword,
+    }
     : undefined,
 };
 
+const isLocal = process.env.NODE_ENV !== 'production';
+console.log("Is local ", isLocal)
 export const kafkaConsumerConfig = {
-    groupId: 'ai-recommender-group',
-    sessionTimeout: 120000, // Increased to 60 seconds (Default is 30000ms)
-    heartbeatInterval: 20000, // Increased to 20 seconds (Default is 3000ms)
+  groupId: 'ai-recommender-group',
+
+  // Ở local, dùng mặc định (30s) để rebalance nhanh hơn khi restart app.
+  // Ở production, dùng 120s để tránh bị kick khi AI đang tính toán nặng.
+  sessionTimeout: 60000,
+
+  // Heartbeat nên bằng 1/3 session timeout
+  heartbeatInterval: 3000,
 };

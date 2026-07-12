@@ -1,4 +1,5 @@
 import { ConfigError } from '../core/errors.js';
+import { AnthropicProvider } from './anthropic/AnthropicProvider.js';
 import { GeminiProvider } from './gemini/GeminiProvider.js';
 import { OpenAIProvider } from './openai/OpenAIProvider.js';
 
@@ -12,6 +13,11 @@ export class ProviderRegistry {
   registerDefaults() {
     this.register('gemini', (overrides = {}) => new GeminiProvider({
       ...this.config.gemini,
+      ...overrides,
+    }));
+
+    this.register('anthropic', (overrides = {}) => new AnthropicProvider({
+      ...this.config.anthropic,
       ...overrides,
     }));
 
@@ -68,7 +74,9 @@ export class ProviderRegistry {
     // Pick the right options block for this provider
     const overrides = providerName === 'openai'
       ? (stageConfig.openaiOptions || {})
-      : (stageConfig.options || {});
+      : providerName === 'anthropic'
+        ? (stageConfig.anthropicOptions || {})
+        : (stageConfig.options || {});
 
     return this.getProvider(providerName, overrides);
   }

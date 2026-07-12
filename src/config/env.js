@@ -76,6 +76,24 @@ export const env = {
   openaiTemperature: readNumber('OPENAI_TEMPERATURE', 0.7),
   openaiMaxTokens: readNumber('OPENAI_MAX_TOKENS', 2048),
 
+
+  // ---------------------------------------------------------------------------
+  // Anthropic
+  // ---------------------------------------------------------------------------
+  anthropicApiKey: readString('ANTHROPIC_API_KEY', readString('OPENAI_API_KEY', '')),
+  anthropicModel: readString('ANTHROPIC_MODEL', readString('OPENAI_MODEL', 'claude-3-5-sonnet-20241022')),
+  anthropicDraftModel: readString('ANTHROPIC_DRAFT_MODEL', readString('ANTHROPIC_MODEL', readString('OPENAI_DRAFT_MODEL', readString('OPENAI_MODEL', 'claude-3-5-sonnet-20241022')))),
+  anthropicRefinerModel: readString('ANTHROPIC_REFINER_MODEL', readString('ANTHROPIC_MODEL', readString('OPENAI_REFINER_MODEL', readString('OPENAI_MODEL', 'claude-3-5-sonnet-20241022')))),
+  anthropicMaxRetries: readNumber('ANTHROPIC_MAX_RETRIES', readNumber('OPENAI_MAX_RETRIES', 1)),
+  anthropicDraftMaxRetries: readNumber('ANTHROPIC_DRAFT_MAX_RETRIES', readNumber('ANTHROPIC_MAX_RETRIES', readNumber('OPENAI_DRAFT_MAX_RETRIES', 1))),
+  anthropicRefinerMaxRetries: readNumber('ANTHROPIC_REFINER_MAX_RETRIES', readNumber('ANTHROPIC_MAX_RETRIES', readNumber('OPENAI_REFINER_MAX_RETRIES', 1))),
+  anthropicRetryDelayMs: readNumber('ANTHROPIC_RETRY_DELAY_MS', readNumber('OPENAI_RETRY_DELAY_MS', 5000)),
+  anthropicDraftRetryDelayMs: readNumber('ANTHROPIC_DRAFT_RETRY_DELAY_MS', readNumber('ANTHROPIC_RETRY_DELAY_MS', 5000)),
+  anthropicRefinerRetryDelayMs: readNumber('ANTHROPIC_REFINER_RETRY_DELAY_MS', readNumber('ANTHROPIC_RETRY_DELAY_MS', 5000)),
+  anthropicBaseURL: readString('ANTHROPIC_BASE_URL', readString('OPENAI_BASE_URL', '')),
+  anthropicTemperature: readNumber('ANTHROPIC_TEMPERATURE', readNumber('OPENAI_TEMPERATURE', 0.7)),
+  anthropicMaxTokens: readNumber('ANTHROPIC_MAX_TOKENS', readNumber('OPENAI_MAX_TOKENS', 4096)),
+
   // ---------------------------------------------------------------------------
   // Concurrency & optimization
   // ---------------------------------------------------------------------------
@@ -102,7 +120,11 @@ export const validateEnv = () => {
     errors.push('OPENAI_API_KEY is required when using provider=openai');
   }
 
-  const supportedProviders = ['gemini', 'openai'];
+  if (usedProviders.includes('anthropic') && !env.anthropicApiKey) {
+    errors.push('ANTHROPIC_API_KEY is required when using provider=anthropic');
+  }
+
+  const supportedProviders = ['gemini', 'openai', 'anthropic'];
   for (const p of usedProviders) {
     if (!supportedProviders.includes(p)) {
       errors.push(`Unsupported provider "${p}". Supported: ${supportedProviders.join(', ')}`);

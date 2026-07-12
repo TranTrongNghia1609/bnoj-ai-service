@@ -25,6 +25,15 @@ export const providerConfig = {
     temperature: env.openaiTemperature,
     maxTokens: env.openaiMaxTokens,
   },
+  anthropic: {
+    apiKey: env.anthropicApiKey,
+    model: env.anthropicModel,
+    maxRetries: Math.max(0, env.anthropicMaxRetries),
+    retryDelayMs: Math.max(1000, env.anthropicRetryDelayMs),
+    ...(env.anthropicBaseURL ? { baseURL: env.anthropicBaseURL } : {}),
+    temperature: env.anthropicTemperature,
+    maxTokens: env.anthropicMaxTokens,
+  },
 
   // ---------------------------------------------------------------------------
   // Pipeline stage config
@@ -48,6 +57,12 @@ export const providerConfig = {
         maxRetries: Math.max(0, env.openaiDraftMaxRetries),
         retryDelayMs: Math.max(1000, env.openaiDraftRetryDelayMs),
       },
+      anthropicOptions: {
+        // Anthropic draft overrides (only applied when provider=anthropic)
+        model: env.anthropicDraftModel,
+        maxRetries: Math.max(0, env.anthropicDraftMaxRetries),
+        retryDelayMs: Math.max(1000, env.anthropicDraftRetryDelayMs),
+      },
     },
     refiner: {
       provider: env.aiRefinerProvider,
@@ -60,6 +75,11 @@ export const providerConfig = {
         model: env.openaiRefinerModel,
         maxRetries: Math.max(0, env.openaiRefinerMaxRetries),
         retryDelayMs: Math.max(1000, env.openaiRefinerRetryDelayMs),
+      },
+      anthropicOptions: {
+        model: env.anthropicRefinerModel,
+        maxRetries: Math.max(0, env.anthropicRefinerMaxRetries),
+        retryDelayMs: Math.max(1000, env.anthropicRefinerRetryDelayMs),
       },
     },
   },

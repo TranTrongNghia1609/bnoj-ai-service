@@ -112,7 +112,7 @@ export class KafkaService {
         }
 
         const { handler, responseTopic } = registration;
-
+        console.log(`[KafkaService] Received message on topic "${topic}"`);
         try {
           const responsePayload = await this.limiter.run(() => handler(message.value));
 

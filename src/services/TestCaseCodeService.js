@@ -40,12 +40,12 @@ export class TestCaseCodeService {
     const isInputOnly = requestData.mode === 'user-solution';
 
     const basePrompt = isInputOnly
-      ? (this.draftProvider.name === 'openai'
-          ? buildTestCaseInputOnlyMessages(requestData)
-          : buildTestCaseInputOnlyPrompt(requestData))
-      : (this.draftProvider.name === 'openai'
-          ? buildTestCaseCodeMessages(requestData)
-          : buildTestCaseCodePrompt(requestData));
+      ? (this.draftProvider.name === 'openai' || this.draftProvider.name === 'anthropic'
+        ? buildTestCaseInputOnlyMessages(requestData)
+        : buildTestCaseInputOnlyPrompt(requestData))
+      : (this.draftProvider.name === 'openai' || this.draftProvider.name === 'anthropic'
+        ? buildTestCaseCodeMessages(requestData)
+        : buildTestCaseCodePrompt(requestData));
 
     const maxAttempts = 2;
     let lastParseError = null;
@@ -80,7 +80,7 @@ export class TestCaseCodeService {
         continue;
       }
 
-      const raw = this._stripFences(String(result.text).trim());
+      const raw = (result.text).trim();
       console.log(`[TestCaseCodeService] Raw response (attempt ${attempt}, length=${raw.length}, first 300 chars): ${raw.slice(0, 300)}`);
 
       try {
@@ -155,7 +155,16 @@ export class TestCaseCodeService {
   }
 
   _stripFences(text) {
-    return text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    const startIndex = text.indexOf('{');
+    const endIndex = text.lastIndexOf('}');
+
+    // If we found both braces and the closing brace is after the opening brace
+    if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+      return text.substring(startIndex, endIndex + 1);
+    }
+
+    // Fallback just in case (though JSON.parse will likely fail anyway if no braces exist)
+    return text.trim();
   }
 
   _fallbackResponse(errorType, detail = '', model = null) {
