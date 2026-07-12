@@ -39,6 +39,7 @@ export class TestCaseCodeHandler {
       outputExample: request?.outputExample || '',
       planVersionNumber: request?.planVersionNumber || null,
       mode: request?.mode || 'ai',
+      locale: request?.locale || request?.responseLanguage || request?.userLanguage || 'vi',
     };
   }
 

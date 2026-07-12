@@ -28,6 +28,7 @@ export class RequestHandler {
       language: request?.language || 'txt',
       userQuestion: request?.userQuestion || '',
       conversationContext: toArray(request?.conversationContext),
+      locale: request?.locale || request?.responseLanguage || request?.userLanguage || null || "vi",
     };
   }
 

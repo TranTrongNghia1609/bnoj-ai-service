@@ -24,6 +24,20 @@ const formatCategories = (categories) => {
     .join('\n');
 };
 
+const getLanguageInstruction = (request) => {
+  if (request?.locale && typeof request.locale === 'string') {
+    const loc = request.locale.toLowerCase();
+    if (loc.includes('vi')) {
+      return '\nCRITICAL LANGUAGE REQUIREMENT: All comments (# ...), docstrings, and natural language text inside your Python scripts MUST be written entirely in clear, natural Vietnamese.\n';
+    }
+    if (loc.includes('en')) {
+      return '\nCRITICAL LANGUAGE REQUIREMENT: All comments (# ...) and docstrings inside your Python scripts MUST be written in English.\n';
+    }
+    return `\nCRITICAL LANGUAGE REQUIREMENT: All comments (# ...) and docstrings inside your Python scripts MUST be written strictly in the language specified by locale="${request.locale}".\n`;
+  }
+  return '\nCRITICAL LANGUAGE REQUIREMENT: You MUST detect the natural language of <problem_statement> (or Problem) above and write all comments (# ...) and docstrings inside your Python scripts strictly in THAT SAME natural language. If <problem_statement> is in Vietnamese, all Python comments (# ...) MUST be in clear Vietnamese (e.g. # Tạo các test case bình thường). If <problem_statement> is in English, write comments in English. Do NOT use English comments when <problem_statement> is in Vietnamese.\n';
+};
+
 // ---------------------------------------------------------------------------
 // Raw text prompt (Gemini / single-turn providers)
 // ---------------------------------------------------------------------------
@@ -114,6 +128,7 @@ RULES:
 12. Escape newlines and special characters properly inside the JSON string values.
 13. Don't generate example input/output
 ${request?.feedback ? '14. Pay careful attention to the user_feedback section and adjust your code accordingly.' : ''}
+${getLanguageInstruction(request)}
 Generate the code now.`;
 };
 
@@ -179,6 +194,8 @@ Rules:
     userContent += `\n\nPrevious input code:\n${trimText(request.previousInputCode, 6000) || '(none)'}`;
     userContent += `\n\nPrevious output code:\n${trimText(request.previousOutputCode, 6000) || '(none)'}`;
   }
+
+  userContent += getLanguageInstruction(request);
 
   return [
     { role: 'system', content: SYSTEM_PROMPT },
@@ -263,6 +280,7 @@ RULES:
 9. Escape newlines and special characters properly inside the JSON string values.
 10. Don't generate example input/output.
 ${request?.feedback ? '11. Pay careful attention to the user_feedback section and adjust your code accordingly.' : ''}
+${getLanguageInstruction(request)}
 Generate the code now.`;
 };
 
@@ -322,6 +340,8 @@ Rules:
   if (request?.previousInputCode) {
     userContent += `\n\nPrevious input code:\n${trimText(request.previousInputCode, 6000)}`;
   }
+
+  userContent += getLanguageInstruction(request);
 
   return [
     { role: 'system', content: INPUT_ONLY_SYSTEM_PROMPT },

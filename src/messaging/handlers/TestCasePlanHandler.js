@@ -36,6 +36,7 @@ export class TestCasePlanHandler {
       numberOfTestCases,
       inputExample: request?.inputExample || '',
       outputExample: request?.outputExample || '',
+      locale: request?.locale || request?.responseLanguage || request?.userLanguage || "vi",
     };
   }
 

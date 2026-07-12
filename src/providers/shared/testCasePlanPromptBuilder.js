@@ -23,12 +23,26 @@ const trimText = (value, maxLen = 4000) => {
   return text.length > maxLen ? `${text.slice(0, maxLen)}...` : text;
 };
 
+const getLanguageInstruction = (request) => {
+  if (request?.locale && typeof request.locale === 'string') {
+    const loc = request.locale.toLowerCase();
+    if (loc.includes('vi')) {
+      return '\nCRITICAL LANGUAGE REQUIREMENT: You MUST write the "description" of each category entirely in clear, natural Vietnamese.\n';
+    }
+    if (loc.includes('en')) {
+      return '\nCRITICAL LANGUAGE REQUIREMENT: You MUST write the "description" of each category in English.\n';
+    }
+    return `\nCRITICAL LANGUAGE REQUIREMENT: You MUST write the "description" of each category strictly in the language specified by locale="${request.locale}".\n`;
+  }
+  return '\nCRITICAL LANGUAGE REQUIREMENT: You MUST detect the natural language of <problem_statement> (or Problem) above and write all "description" fields strictly in THAT SAME language. If <problem_statement> is written in Vietnamese, your "description" MUST be written in natural, clear Vietnamese. Do NOT return English descriptions when <problem_statement> is in Vietnamese.\n';
+};
+
 // ---------------------------------------------------------------------------
 // Raw text prompt (Gemini / single-turn providers)
 // ---------------------------------------------------------------------------
 
 /**
- * @param {{ statement: string, inputConstraint: string, outputConstraint: string, numberOfTestCases: number, inputExample: string, outputExample: string }} request
+ * @param {{ statement: string, inputConstraint: string, outputConstraint: string, numberOfTestCases: number, inputExample: string, outputExample: string, locale?: string }} request
  * @returns {string}
  */
 export const buildTestCasePlanPrompt = (request) => {
@@ -39,7 +53,6 @@ export const buildTestCasePlanPrompt = (request) => {
   const outputExample = trimText(request?.outputExample, 2000);
   const n = Math.max(1, Math.min(50, Number(request?.numberOfTestCases) || 5));
 
-  // Vẫn giữ sample để AI hiểu context bài toán, nhưng không bắt ép description phải map với nó theo kiểu format.
   const sampleBlock = (inputExample || outputExample)
       ? `\n<sample_io>\n=== Sample Input ===\n${inputExample || '(not provided)'}\n\n=== Sample Output ===\n${outputExample || '(not provided)'}\n</sample_io>\n`
       : '';
@@ -87,7 +100,7 @@ RULES:
 3. Do NOT include individual test case details, input values, or expected outputs.
 4. Start your response with [ and end with ]. No Markdown fences, no extra text.
 5. CONCEPTUAL DESCRIPTIONS ONLY: Focus strictly on algorithmic scenarios (e.g., array sorted/unsorted, negative numbers, max N). NEVER mention text formatting, layout, or include phrases like "=== Sample Input ===", "=== Sample Output ===", or "đúng định dạng" in your descriptions.
-
+${getLanguageInstruction(request)}
 Generate the test case plan now (total: ${n} tests).`;
 };
 
@@ -102,7 +115,7 @@ No individual test case details. No input/output values.
 Output ONLY a valid JSON array. Start with [ and end with ]. No Markdown, no prose.`;
 
 /**
- * @param {{ statement: string, inputConstraint: string, outputConstraint: string, numberOfTestCases: number, inputExample: string, outputExample: string }} request
+ * @param {{ statement: string, inputConstraint: string, outputConstraint: string, numberOfTestCases: number, inputExample: string, outputExample: string, locale?: string }} request
  * @returns {Array<{role: string, content: string}>}
  */
 export const buildTestCasePlanMessages = (request) => {
@@ -131,7 +144,7 @@ Return a JSON array where each element has:
   "description": "<what these tests cover logically (data characteristics). NEVER mention I/O formatting, layouts, or phrases like '=== Sample Input ==='>"
 
 No individual test details. No input/output values.
-Start with [ and end with ].`;
+Start with [ and end with ].${getLanguageInstruction(request)}`;
 
   return [
     { role: 'system', content: SYSTEM_PROMPT },

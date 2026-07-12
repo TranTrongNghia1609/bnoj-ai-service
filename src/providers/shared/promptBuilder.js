@@ -38,9 +38,9 @@ const buildRequestContext = (request) => {
 
   const examplesText = mergedExamples.length > 0
     ? mergedExamples
-        .slice(0, 2)
-        .map((ex, idx) => `Vi du ${idx + 1}:\n- Input: ${ex.input}\n- Output: ${ex.output}`)
-        .join('\n\n')
+      .slice(0, 2)
+      .map((ex, idx) => `Vi du ${idx + 1}:\n- Input: ${ex.input}\n- Output: ${ex.output}`)
+      .join('\n\n')
     : 'Khong co vi du.';
 
   const followUpQuestion = trimText(userQuestion, 500);
@@ -50,12 +50,12 @@ const buildRequestContext = (request) => {
 
   const conversationText = normalizedConversation.length > 0
     ? normalizedConversation
-        .map((msg, idx) => {
-          const role = String(msg?.role || 'unknown').toUpperCase();
-          const content = trimText(msg?.content, 600);
-          return `${idx + 1}. [${role}] ${content}`;
-        })
-        .join('\n')
+      .map((msg, idx) => {
+        const role = String(msg?.role || 'unknown').toUpperCase();
+        const content = trimText(msg?.content, 600);
+        return `${idx + 1}. [${role}] ${content}`;
+      })
+      .join('\n')
     : 'Chua co hoi thoai truoc do.';
 
   const failedContext = failedReason === 'FOLLOW_UP_REQUEST'
@@ -75,7 +75,22 @@ const buildRequestContext = (request) => {
     failedContext,
     followUpQuestion,
     conversationText,
+    locale: request?.locale || request?.responseLanguage || request?.userLanguage || "vi",
   };
+};
+
+const getHintLanguageInstruction = (request) => {
+  if (request?.locale && typeof request.locale === 'string') {
+    const loc = request.locale.toLowerCase();
+    if (loc.includes('vi')) {
+      return '\nYÊU CẦU QUAN TRỌNG VỀ NGÔN NGỮ: Bạn PHẢI trả lời và giải thích gợi ý (hint) 100% bằng tiếng Việt tự nhiên, rõ ràng.\n';
+    }
+    if (loc.includes('en')) {
+      return '\nCRITICAL LANGUAGE REQUIREMENT: You MUST answer and provide all explanations in clear English.\n';
+    }
+    return `\nCRITICAL LANGUAGE REQUIREMENT: You MUST answer and provide all explanations strictly in the language specified by locale="${request.locale}".\n`;
+  }
+  return '\nYÊU CẦU QUAN TRỌNG VỀ NGÔN NGỮ / CRITICAL LANGUAGE REQUIREMENT:\nBạn PHẢI tự động nhận diện ngôn ngữ tự nhiên của đề bài (<thong_tin_bai_toan>) hoặc câu hỏi của người dùng, và trả lời gợi ý (hint) hoàn toàn bằng NGÔN NGỮ ĐÓ. Nếu đề bài hoặc câu hỏi bằng tiếng Việt, trả lời 100% bằng tiếng Việt rõ ràng, dễ hiểu. Nếu đề bài hoặc câu hỏi bằng tiếng Anh, trả lời 100% bằng tiếng Anh. KHÔNG trả lời bằng tiếng Anh nếu đề bài đang bằng tiếng Việt.\n';
 };
 
 // ---------------------------------------------------------------------------
@@ -129,9 +144,10 @@ ${followUpQuestion || 'Không có câu hỏi bổ sung. Hãy dựa vào mã ngu�
 1. **Phân tích nguyên nhân:** Chỉ ra sơ hở trong logic hoặc lỗi cú pháp (dựa trên failed context hoặc code của người dùng), giúp họ hiểu TẠI SAO code sai hoặc chưa tối ưu.
 2. **Sử dụng phương pháp gợi mở (Socratic):** Đặt câu hỏi để người dùng tự suy nghĩ bước tiếp theo, hướng dẫn họ từng bước thay vì nói thẳng đáp án.
 3. **Mức độ gợi ý:** Nếu trong <lich_su_hoi_thoai> đã có gợi ý, hãy đi sâu hơn một bước so với lần trước.
-4. **Định dạng:** Trình bày bằng tiếng Việt rõ ràng, thân thiện. Sử dụng Markdown để highlight từ khóa, tên biến, hoặc hàm.
+4. **Định dạng:** Trình bày rõ ràng, thân thiện. Sử dụng Markdown để highlight từ khóa, tên biến, hoặc hàm.
 5. **RÀNG BUỘC TỐI THƯỢNG:** TUYỆT ĐỐI KHÔNG cung cấp đoạn code hoàn chỉnh để giải quyết bài toán. Bạn chỉ được phép cung cấp mã giả (pseudocode) ngắn, hoặc sửa tối đa 1-2 dòng nếu thật sự cần thiết để giải thích về mặt cú pháp.
-6. ĐỘ DÀI: Câu trả lời phải cực kỳ ngắn gọn, súc tích, tối đa không quá 3-4 câu hoặc 1 đoạn văn.`;
+6. ĐỘ DÀI: Câu trả lời phải cực kỳ ngắn gọn, súc tích, tối đa không quá 3-4 câu hoặc 1 đoạn văn.
+${getHintLanguageInstruction(request)}`;
 };
 export const buildRefinerPrompt = (request, draftHint) => {
   const {
@@ -178,8 +194,8 @@ Yeu cau cai tien:
 2. Tăng độ rõ ràng: chia nhỏ các bước hành động cụ thể, để học sinh có thể tự làm tiếp.
 3. Loai bo noi dung trung lap, manh de, hoac qua chung chung.
 4. Neu can, them mot checklist ngan de hoc sinh tu kiem tra.
-5. Tra ve bang tieng Viet va dung Markdown de de doc.
-
+5. Tra ve goi y bang Markdown theo dung ngon ngu duoc yeu cau.
+${getHintLanguageInstruction(request)}
 Chi tra ve noi dung goi y da cai tien, khong giai thich them ve qua trinh cai tien.`;
 };
 
@@ -258,7 +274,7 @@ ${sourceCode}
     ? followUpQuestion
     : 'Hãy phân tích và đưa ra gợi ý để tôi tự giải bài này.';
 
-  messages.push({ role: 'user', content: userTurn });
+  messages.push({ role: 'user', content: `${userTurn}\n${getHintLanguageInstruction(request)}` });
 
   return messages;
 };
@@ -313,7 +329,8 @@ Yêu cầu cải tiến:
 2. Tăng độ rõ ràng: chia nhỏ các bước hành động cụ thể.
 3. Loại bỏ nội dung trùng lặp, mạnh đề, hoặc quá chung chung.
 4. Nếu cần, thêm một checklist ngắn để học sinh tự kiểm tra.
-5. Trả về bằng tiếng Việt và dùng Markdown.`;
+5. Trả về gợi ý bằng Markdown theo đúng ngôn ngữ được yêu cầu.
+${getHintLanguageInstruction(request)}`;
 
   return [
     { role: 'system', content: SYSTEM_PROMPT_REFINER },
