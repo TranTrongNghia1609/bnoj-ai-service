@@ -128,7 +128,6 @@ export class AnthropicProvider extends ProviderBase {
     };
 
     let completion;
-    console.log("Payload: ", requestPayload)
     try {
       completion = await client.messages.create(requestPayload);
     } catch (apiErr) {

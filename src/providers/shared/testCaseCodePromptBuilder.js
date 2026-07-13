@@ -124,7 +124,7 @@ RULES:
 8. inputCode must respect ALL stated constraints (value ranges, array sizes, data types).
 9. Separate each test case block in inputCode by printing exactly ---TEST_BOUNDARY--- on its own line (and nothing else on that line).
 10. Only use Python standard library modules (random, sys, math, itertools, collections, etc.). Do NOT import third-party packages.
-11. Start your response with { and end with }. No Markdown fences, no extra text.
+11. CRITICAL: Your response must be raw JSON only. Do NOT wrap in markdown code fences (\`\`\`json or \`\`\`). Start directly with { and end with }. No extra text before or after.
 12. Escape newlines and special characters properly inside the JSON string values.
 13. Don't generate example input/output
 ${request?.feedback ? '14. Pay careful attention to the user_feedback section and adjust your code accordingly.' : ''}
@@ -139,6 +139,7 @@ Generate the code now.`;
 const SYSTEM_PROMPT = `You are an expert competitive-programming problem setter and Python programmer.
 You generate two Python scripts: one for input generation and one for solving the problem (output generation).
 Output ONLY a valid JSON object with keys "inputCode" and "outputCode".
+CRITICAL: Do NOT wrap your response in markdown code fences (\`\`\`json or \`\`\`). Output raw JSON only.
 Start with { and end with }. No Markdown, no prose.`;
 
 /**
@@ -184,7 +185,7 @@ Rules:
 - Use random.seed(42) in inputCode for reproducibility.
 - Separate each test case in inputCode with exactly ---TEST_BOUNDARY--- on its own line (nothing else on that line).
 - Don't generate example input/output in your code.
-- Start with { and end with }.`;
+- CRITICAL: Do NOT wrap your response in markdown code fences (\`\`\`json or \`\`\`). Output raw JSON only. Start directly with { and end with }.`;
 
   if (request?.feedback) {
     userContent += `\n\nUser feedback on previous code:\n${trimText(request.feedback, 2000)}`;
@@ -276,7 +277,7 @@ RULES:
 5. inputCode must respect ALL stated constraints (value ranges, array sizes, data types).
 6. Separate each test case block by printing exactly ---TEST_BOUNDARY--- on its own line.
 7. Only use Python standard library modules. Do NOT import third-party packages.
-8. Start your response with { and end with }. No Markdown fences, no extra text.
+8. CRITICAL: Your response must be raw JSON only. Do NOT wrap in markdown code fences (\`\`\`json or \`\`\`). Start directly with { and end with }. No extra text before or after.
 9. Escape newlines and special characters properly inside the JSON string values.
 10. Don't generate example input/output.
 ${request?.feedback ? '11. Pay careful attention to the user_feedback section and adjust your code accordingly.' : ''}
@@ -291,6 +292,7 @@ Generate the code now.`;
 const INPUT_ONLY_SYSTEM_PROMPT = `You are an expert competitive-programming problem setter and Python programmer.
 You generate a Python script for input generation only. The user already has their own solution.
 Output ONLY a valid JSON object with key "inputCode".
+CRITICAL: Do NOT wrap your response in markdown code fences (\`\`\`json or \`\`\`). Output raw JSON only.
 Start with { and end with }. No Markdown, no prose.`;
 
 /**
@@ -331,7 +333,7 @@ Rules:
 - Use random.seed(42) in inputCode for reproducibility.
 - Separate each test case with exactly ---TEST_BOUNDARY--- on its own line.
 - Don't generate example input/output.
-- Start with { and end with }.`;
+- CRITICAL: Do NOT wrap your response in markdown code fences (\`\`\`json or \`\`\`). Output raw JSON only. Start directly with { and end with }.`;
 
   if (request?.feedback) {
     userContent += `\n\nUser feedback on previous code:\n${trimText(request.feedback, 2000)}`;

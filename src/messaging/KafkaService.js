@@ -24,15 +24,17 @@ export class KafkaService {
    * @param {Object} options.kafkaClientConfig
    * @param {Object} options.kafkaConsumerConfig
    * @param {number} [options.maxConcurrent=3]
+   * @param {import('../core/RedisDeduplicator.js').RedisDeduplicator} [options.deduplicator] — optional deduplicator instance
    */
-  constructor({ kafkaClientConfig, kafkaConsumerConfig, maxConcurrent = 3 }) {
+  constructor({ kafkaClientConfig, kafkaConsumerConfig, maxConcurrent = 3, deduplicator = null }) {
     this.kafka = new Kafka(kafkaClientConfig);
     this.producer = this.kafka.producer();
     this.consumer = this.kafka.consumer(kafkaConsumerConfig);
     this.admin = this.kafka.admin();
     this.limiter = new ConcurrencyLimiter(maxConcurrent);
+    this.deduplicator = deduplicator;
 
-    /** @type {Map<string, { handler: Function, responseTopic?: string, topicConfig?: Object }>} */
+    /** @type {Map<string, { handler: Function, responseTopic?: string, topicConfig?: Object, dedupKeyExtractor?: Function }>} */
     this._topicHandlers = new Map();
   }
 
@@ -48,12 +50,13 @@ export class KafkaService {
    * @param {Function} registration.handler  – async (messageValue: Buffer) => responsePayload | null
    * @param {string}   [registration.responseTopic]  – topic to produce the response to (omit for fire-and-forget)
    * @param {Object}   [registration.topicConfig]    – admin createTopics config overrides
+   * @param {Function} [registration.dedupKeyExtractor] – (messageValue: Buffer) => string|null — extracts a dedup key from the message
    */
-  register(incomingTopic, { handler, responseTopic, topicConfig = {} }) {
+  register(incomingTopic, { handler, responseTopic, topicConfig = {}, dedupKeyExtractor = null }) {
     if (typeof handler !== 'function') {
       throw new TypeError(`KafkaService.register: handler for "${incomingTopic}" must be a function`);
     }
-    this._topicHandlers.set(String(incomingTopic), { handler, responseTopic, topicConfig });
+    this._topicHandlers.set(String(incomingTopic), { handler, responseTopic, topicConfig, dedupKeyExtractor });
   }
 
   // ---------------------------------------------------------------------------
@@ -111,8 +114,26 @@ export class KafkaService {
           return;
         }
 
-        const { handler, responseTopic } = registration;
+        const { handler, responseTopic, dedupKeyExtractor } = registration;
         console.log(`[KafkaService] Received message on topic "${topic}"`);
+
+        // ── Deduplication check ────────────────────────────────────────────
+        if (this.deduplicator && dedupKeyExtractor) {
+          try {
+            const dedupKey = dedupKeyExtractor(message.value);
+            if (dedupKey) {
+              const isDup = await this.deduplicator.isDuplicate(dedupKey);
+              if (isDup) {
+                console.log(`[KafkaService] Duplicate message skipped on "${topic}" — key="${dedupKey}"`);
+                return;
+              }
+            }
+          } catch (err) {
+            // Graceful degradation: if dedup check fails, continue processing
+            console.warn(`[KafkaService] Dedup check error on "${topic}":`, err.message);
+          }
+        }
+
         try {
           const responsePayload = await this.limiter.run(() => handler(message.value));
 

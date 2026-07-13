@@ -126,11 +126,14 @@ export class TestCaseCodeService {
   }
 
   _tryParseAndClean(raw) {
+    // Step 1: strip markdown code fences if present (e.g. ```json ... ```)
+    const stripped = this._stripFences(raw);
+
     try {
-      return JSON.parse(raw);
+      return JSON.parse(stripped);
     } catch (firstErr) {
-      // Attempt cleanup: strip trailing commas before closing braces/brackets
-      const cleaned = raw.replace(/,\s*([\]}])/g, '$1');
+      // Step 2: strip trailing commas before closing braces/brackets
+      const cleaned = stripped.replace(/,\s*([\]}])/g, '$1');
       try {
         return JSON.parse(cleaned);
       } catch (secondErr) {
@@ -155,16 +158,20 @@ export class TestCaseCodeService {
   }
 
   _stripFences(text) {
-    const startIndex = text.indexOf('{');
-    const endIndex = text.lastIndexOf('}');
+    // Remove markdown code fences: ```json ... ``` or ``` ... ```
+    let cleaned = text.trim();
+    cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '');
+    cleaned = cleaned.trim();
 
-    // If we found both braces and the closing brace is after the opening brace
+    // Extract the JSON object from { to last }
+    const startIndex = cleaned.indexOf('{');
+    const endIndex = cleaned.lastIndexOf('}');
+
     if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-      return text.substring(startIndex, endIndex + 1);
+      return cleaned.substring(startIndex, endIndex + 1);
     }
 
-    // Fallback just in case (though JSON.parse will likely fail anyway if no braces exist)
-    return text.trim();
+    return cleaned;
   }
 
   _fallbackResponse(errorType, detail = '', model = null) {

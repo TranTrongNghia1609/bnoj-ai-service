@@ -98,7 +98,7 @@ RULES:
 1. Use between 1 and 4 category groups (only include categories that are relevant).
 2. The sum of all "count" values must equal exactly ${n}.
 3. Do NOT include individual test case details, input values, or expected outputs.
-4. Start your response with [ and end with ]. No Markdown fences, no extra text.
+4. CRITICAL: Your response must be raw JSON only. Do NOT wrap in markdown code fences (\`\`\`json or \`\`\`). Start directly with [ and end with ]. No extra text before or after.
 5. CONCEPTUAL DESCRIPTIONS ONLY: Focus strictly on algorithmic scenarios (e.g., array sorted/unsorted, negative numbers, max N). NEVER mention text formatting, layout, or include phrases like "=== Sample Input ===", "=== Sample Output ===", or "đúng định dạng" in your descriptions.
 ${getLanguageInstruction(request)}
 Generate the test case plan now (total: ${n} tests).`;
@@ -112,7 +112,8 @@ const SYSTEM_PROMPT = `You are an expert competitive-programming test designer.
 You produce TEST CASE PLANS — grouped by category, specifying count and a conceptual description for each group.
 Focus on data characteristics (size, values, edge cases). NEVER mention standard I/O formatting or tags like "Sample Input".
 No individual test case details. No input/output values.
-Output ONLY a valid JSON array. Start with [ and end with ]. No Markdown, no prose.`;
+Output ONLY a valid JSON array. CRITICAL: Do NOT wrap your response in markdown code fences (\`\`\`json or \`\`\`). Output raw JSON only.
+Start with [ and end with ]. No Markdown, no prose.`;
 
 /**
  * @param {{ statement: string, inputConstraint: string, outputConstraint: string, numberOfTestCases: number, inputExample: string, outputExample: string, locale?: string }} request
@@ -144,7 +145,7 @@ Return a JSON array where each element has:
   "description": "<what these tests cover logically (data characteristics). NEVER mention I/O formatting, layouts, or phrases like '=== Sample Input ==='>"
 
 No individual test details. No input/output values.
-Start with [ and end with ].${getLanguageInstruction(request)}`;
+CRITICAL: Do NOT wrap your response in markdown code fences (\`\`\`json or \`\`\`). Output raw JSON only. Start directly with [ and end with ].${getLanguageInstruction(request)}`;
 
   return [
     { role: 'system', content: SYSTEM_PROMPT },

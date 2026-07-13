@@ -99,6 +99,13 @@ export const env = {
   // ---------------------------------------------------------------------------
   aiMaxConcurrent: readNumber('AI_MAX_CONCURRENT', 3),
   aiSkipRefinerMinLength: readNumber('AI_SKIP_REFINER_MIN_LENGTH', 200),
+
+  // ---------------------------------------------------------------------------
+  // Redis (deduplication)
+  // ---------------------------------------------------------------------------
+  redisUrl: readString('REDIS_URL', ''),
+  dedupTtlSeconds: readNumber('DEDUP_TTL_SECONDS', 300),
+  dedupKeyPrefix: readString('DEDUP_KEY_PREFIX', 'dedup:'),
 };
 
 export const validateEnv = () => {
